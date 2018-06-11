@@ -1,6 +1,10 @@
 const Sequelize = require("sequelize");
 const Op = Sequelize.Op;
 const {models} = require("../models");
+const op = Sequelize.Op;
+
+
+
 
 const paginate = require('../helpers/paginate').paginate;
 
@@ -227,6 +231,72 @@ exports.check = (req, res, next) => {
     res.render('quizzes/result', {
         quiz,
         result,
+        answer
+    });
+};
+
+
+
+// GET /quizzes/randomplay
+
+exports.randomplay = (req,res,next) =>{
+
+    const {quiz, query} = req;  
+
+    req.session.randomPlay = req.session.randomPlay || [];
+    const whereOp = {id: {[op.notIn]: req.session.randomPlay}};  
+    
+    models.quiz.count({where:whereOp}) 
+    .then(count => {
+        if(!count){  
+            let score = req.session.randomPlay.length;
+            req.session.randomPlay = []; 
+            
+            res.render('quizzes/random_nomore',{
+                score: score
+            });
+        }
+
+    let aleatorio =  Math.floor(count*Math.random());  
+    return models.quiz.findAll({where: whereOp, offset:aleatorio, limit: 1})
+        .then(quizzes => {
+            return quizzes[0];
+            });
+    })
+    .then(quiz =>{                      
+        let score = req.session.randomPlay.length;     
+        res.render('quizzes/random_play',{
+            quiz: quiz, 
+            score: score}
+            );
+    })
+    .catch(error => {  
+        next(error);
+    });
+};
+
+
+
+
+// GET /quizzes/:quizId/randomcheck
+exports.randomcheck =  (req, res, next) => {
+
+    const {quiz, query} = req;  
+    
+    const answer = query.answer || "";
+    const result = answer.toLowerCase().trim() === quiz.answer.toLowerCase().trim(); 
+    const score = req.session.randomPlay.length + result; 
+    
+    if(result) {
+        req.session.randomPlay.push(quiz.id);
+    } 
+    else {
+        req.session.randomPlay = [];
+    }
+    
+    res.render('quizzes/random_result', {  
+        result,
+        score,
         answer
     });
 };
